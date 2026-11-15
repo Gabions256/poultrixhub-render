@@ -1,0 +1,58 @@
+# Generate drafts and render post media for the PoultrixHub growth engine (the app itself is private).
+# Only schedule and manual triggers: no pull_request trigger, so forks never see secrets.
+# Times are UTC (Kampala = UTC+3). GitHub may start scheduled runs some minutes late.
+# Repo secrets: DATABASE_URL, BLOB_READ_WRITE_TOKEN, GEMINI_API_KEY, CRON_SECRET, APP_URL.
+name: engine
+on:
+  schedule:
+    - cron: "30 2 * * *"      # 05:30 generate drafts, then render their media
+    - cron: "*/30 3-16 * * *" # render catch-up during the day
+  workflow_dispatch:
+    inputs:
+      job:
+        description: "generate | render"
+        required: true
+        default: render
+concurrency: engine-${{ github.event.schedule || inputs.job }}
+permissions:
+  contents: read
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: pick job
+        id: pick
+        env:
+          INPUT_JOB: ${{ inputs.job }}
+        run: |
+          case "${{ github.event.schedule }}" in
+            "30 2 * * *") j=generate ;;
+            "") j="$INPUT_JOB" ;; *) j=render ;;
+          esac
+          case "$j" in generate|render) ;; *) echo "unknown job $j"; exit 1 ;; esac
+          echo "job=$j" >> "$GITHUB_OUTPUT"
+      - uses: actions/checkout@v4
+        if: contains(fromJSON('["generate","render"]'), steps.pick.outputs.job)
+      - uses: actions/setup-node@v4
+        if: contains(fromJSON('["generate","render"]'), steps.pick.outputs.job)
+        with: { node-version: 24, cache: npm }
+      - if: contains(fromJSON('["generate","render"]'), steps.pick.outputs.job)
+        run: npm ci
+      - name: generate drafts
+        if: steps.pick.outputs.job == 'generate'
+        run: node scripts/generate.ts
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          PLAY_STORE_URL: https://play.google.com/store/apps/details?id=app.poultrixhub.android
+      - name: render media
+        if: contains(fromJSON('["generate","render"]'), steps.pick.outputs.job)
+        run: npx remotion browser ensure && npm run render
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
+      - name: alert on failure
+        if: failure()
+        run: |
+          curl -sS -m 60 -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" "${{ secrets.APP_URL }}/api/cron/alert?msg=engine%20job%20${{ steps.pick.outputs.job }}%20failed" || true

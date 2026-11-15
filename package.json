@@ -1,0 +1,27 @@
+{
+  "name": "poultrixhub-render",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "render": "node scripts/render-media.ts",
+    "generate": "node scripts/generate.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^1.8.0",
+    "@google/genai": "^3.3.0",
+    "@remotion/bundler": "^4.0.543",
+    "@remotion/cli": "^4.0.543",
+    "@remotion/google-fonts": "^4.0.543",
+    "@remotion/renderer": "^4.0.543",
+    "@vercel/blob": "^2.9.0",
+    "postgres": "^4.1.1",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "remotion": "^4.0.543",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/react": "^19",
+    "typescript": "^5"
+  }
+}
