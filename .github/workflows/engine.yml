@@ -6,7 +6,7 @@ name: engine
 on:
   schedule:
     - cron: "30 2 * * *"      # 05:30 generate drafts, then render their media
-    - cron: "*/30 3-16 * * *" # render catch-up during the day
+    - cron: "*/30 3-20 * * *" # render catch-up 06:00-23:30 Kampala (also picks up "Generate now" drafts)
   workflow_dispatch:
     inputs:
       job:
