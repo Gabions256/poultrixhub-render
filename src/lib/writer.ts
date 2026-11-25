@@ -5,7 +5,8 @@ import { join } from "node:path";
 import { sql } from "./db.ts";
 import { checkPost, readFacts, type CheckResult } from "./checker.ts";
 import { LIMITS, installLink, planDay, type Slot } from "./plan.ts";
-import { CHANNELS, insertPost, type Channel, type NewPost, type Pillar, type Post } from "./posts.ts";
+import { approvePost, CHANNELS, insertPost, type Channel, type NewPost, type Pillar, type Post } from "./posts.ts";
+import { autoApproveEnabled } from "./settings.ts";
 
 export type Brief = { id?: number; stage: string; push: string };
 
@@ -109,18 +110,33 @@ export async function latestBrief(): Promise<Brief | undefined> {
 export async function generateDay(): Promise<{ saved: Post[]; dropped: number }> {
   const brief = await latestBrief();
   if (!brief) throw new Error("No brief yet. Type one in the app first.");
-  const hist = await sql<{ pillar: Pillar; n: number }[]>`
-    SELECT pillar, count(*)::int AS n FROM posts WHERE created_at > now() - interval '30 days' GROUP BY pillar`;
-  const winners = await sql<{ line: string }[]>`
-    SELECT p.pillar || ' / ' || p.format || ': ' || p.hook AS line
-    FROM posts p JOIN LATERAL (SELECT views FROM metrics m WHERE m.post_id = p.id ORDER BY collected_at DESC LIMIT 1) m ON true
-    WHERE p.published_at > now() - interval '7 days' AND m.views IS NOT NULL
-    ORDER BY m.views DESC LIMIT 5`;
+  const [hist, winners, autoApprove] = await Promise.all([
+    sql<{ pillar: Pillar; n: number }[]>`
+      SELECT pillar, count(*)::int AS n FROM posts WHERE created_at > now() - interval '30 days' GROUP BY pillar`,
+    sql<{ line: string }[]>`
+      SELECT p.pillar || ' / ' || p.format || ': ' || p.hook AS line
+      FROM posts p JOIN LATERAL (SELECT views FROM metrics m WHERE m.post_id = p.id ORDER BY collected_at DESC LIMIT 1) m ON true
+      WHERE p.published_at > now() - interval '7 days' AND m.views IS NOT NULL
+      ORDER BY m.views DESC LIMIT 5`,
+    autoApproveEnabled(),
+  ]);
   const { kept, dropped } = await generatePosts(brief, {
     history: Object.fromEntries(hist.map((h) => [h.pillar, h.n])),
     winners: winners.map((w) => w.line),
   });
-  const saved = [];
-  for (const p of kept) saved.push(await insertPost(p));
+  const saved = await saveCheckedPosts(kept, autoApprove);
   return { saved, dropped: dropped.length };
+}
+
+export async function saveCheckedPosts(kept: NewPost[], autoApprove: boolean): Promise<Post[]> {
+  const saved: Post[] = [];
+  for (const p of kept) {
+    const post = await insertPost(p);
+    if (autoApprove) {
+      const approved = await approvePost(post.id);
+      if (!approved) throw new Error(`Could not auto-approve post ${post.id}`);
+      saved.push(approved);
+    } else saved.push(post);
+  }
+  return saved;
 }

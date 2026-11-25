@@ -10,7 +10,7 @@ if ("refused" in run) {
   try {
     const { saved, dropped } = await generateDay();
     await finishRun(run.id, `saved ${saved.length}, dropped ${dropped}`);
-    console.log(`saved ${saved.length} drafts, dropped ${dropped}`);
+    console.log(`saved ${saved.length} posts, dropped ${dropped}`);
   } catch (e) {
     await finishRun(run.id, e instanceof Error ? e.message : String(e), true);
     throw e;
