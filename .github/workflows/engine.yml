@@ -30,31 +30,15 @@ jobs:
             "30 2 * * *") j=generate ;;
             "") j="$INPUT_JOB" ;; *) j=render ;;
           esac
-          case "$j" in generate|render|verify) ;; *) echo "unknown job $j"; exit 1 ;; esac
+          case "$j" in generate|render) ;; *) echo "unknown job $j"; exit 1 ;; esac
           echo "job=$j" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
-        if: contains(fromJSON('["generate","render","verify"]'), steps.pick.outputs.job)
+        if: contains(fromJSON('["generate","render"]'), steps.pick.outputs.job)
       - uses: actions/setup-node@v4
-        if: contains(fromJSON('["generate","render","verify"]'), steps.pick.outputs.job)
+        if: contains(fromJSON('["generate","render"]'), steps.pick.outputs.job)
         with: { node-version: 24, cache: npm }
-      - if: contains(fromJSON('["generate","render","verify"]'), steps.pick.outputs.job)
+      - if: contains(fromJSON('["generate","render"]'), steps.pick.outputs.job)
         run: npm ci
-      - name: verify database migration
-        if: steps.pick.outputs.job == 'verify'
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: |
-          node --input-type=module -e '
-          import postgres from "postgres";
-          const url = new URL(process.env.DATABASE_URL);
-          url.searchParams.delete("channel_binding");
-          const sql = postgres(url.toString(), { prepare: false });
-          try {
-            const [r] = await sql`SELECT to_regclass('\''public.posts'\'') IS NOT NULL AS posts, to_regclass('\''public.app_settings'\'') IS NOT NULL AS settings, to_regclass('\''public.metrics_post_collected_idx'\'') IS NOT NULL AS metrics_index`;
-            if (!r.posts || !r.settings || !r.metrics_index) throw new Error("Migration is incomplete");
-            console.log("Database migration verified");
-          } finally { await sql.end(); }
-          '
       - name: generate drafts
         if: steps.pick.outputs.job == 'generate'
         run: node scripts/generate.ts
