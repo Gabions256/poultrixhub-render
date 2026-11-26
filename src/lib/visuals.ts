@@ -43,7 +43,8 @@ async function still(id: string, props: Record<string, unknown>, output: string)
 
 /** Carousel slides: cover (headline), the writer's slides, then an install slide. Capped at 5 slides. */
 export function carouselSlides(v: Visual): string[] {
-  const middle = (v.slides ?? []).slice(0, 3);
+  // Writers sometimes prefix slides with "Slide 1:"; the slide counter already shows the position.
+  const middle = (v.slides ?? []).slice(0, 3).map((t) => t.replace(/^\s*slide\s*\d+\s*[:.\-–]\s*/i, ""));
   return [v.headline ?? "", ...middle, v.ctaText ?? "Learn more today."].filter(Boolean);
 }
 

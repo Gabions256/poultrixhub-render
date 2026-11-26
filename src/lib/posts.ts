@@ -3,7 +3,7 @@ import { nextSlot } from "./plan.ts";
 import type { BriefSpec } from "./writer.ts";
 
 export const CHANNELS = ["facebook", "instagram", "youtube", "tiktok", "x", "whatsapp"] as const;
-export const ACTIVE_CHANNELS = ["youtube", "tiktok", "x", "whatsapp"] as const;
+export const ACTIVE_CHANNELS = ["facebook", "youtube", "tiktok", "x", "whatsapp"] as const;
 export const PILLARS = [
   "farm_tip", "calculator_demo", "problem_fix", "app_walkthrough", "install_ask",
   "education", "product_demo", "problem_solution", "behind_scenes", "social_proof", "offer", "founder_story", "event",

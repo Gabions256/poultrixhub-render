@@ -8,7 +8,8 @@ export const PILLAR_MIX: Record<Pillar, number> = {
   offer: 0.05, founder_story: 0.04, event: 0.03,
 };
 
-export const DAILY_SLOTS: Channel[] = ["youtube", "tiktok", "tiktok", "x", "x", "whatsapp"];
+// Facebook is posted by hand (no automatic posting yet) but still gets 2 posts a day.
+export const DAILY_SLOTS: Channel[] = ["facebook", "facebook", "youtube", "tiktok", "tiktok", "x", "x", "whatsapp"];
 
 // Caption limits we enforce (platform max is higher on Facebook; 2200 keeps posts readable and portable).
 export const LIMITS: Record<Channel, { caption: number; hashtags: number; hook: number }> = {

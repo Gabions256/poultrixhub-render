@@ -37,6 +37,26 @@ async function viaGemini<S extends z.ZodType>(schema: S, system: string, user: s
   }
 }
 
+/** Free-text answer grounded in Google Search (Gemini only). Used to find real businesses; results are verified by fetching their sites. */
+export async function searchWeb(prompt: string): Promise<string> {
+  const key = process.env.GEMINI_API_KEY;
+  if (!key) throw new Error("GEMINI_API_KEY is not set");
+  const ai = new GoogleGenAI({ apiKey: key, httpOptions: { timeout: 120_000, retryOptions: { attempts: 1 } } });
+  const models = [process.env.GEMINI_MODEL || "gemini-3.8-flash", process.env.GEMINI_FALLBACK_MODEL || "gemini-3.5-flash-lite"];
+  let last: unknown;
+  for (const model of [...models, ...models]) {
+    try {
+      const res = await ai.models.generateContent({ model, contents: prompt, config: { tools: [{ googleSearch: {} }] } });
+      if (res.text) return res.text;
+    } catch (e) {
+      last = e;
+      if (![429, 500, 503, 504].includes((e as { status?: number }).status ?? 0)) throw e;
+      await new Promise((r) => setTimeout(r, 5000));
+    }
+  }
+  throw last ?? new Error("Web search returned nothing");
+}
+
 async function viaClaude<S extends z.ZodType>(schema: S, system: string, user: string): Promise<z.infer<S>> {
   const res = await new Anthropic().beta.messages.parse({
     model: process.env.ANTHROPIC_MODEL || "claude-opus-5-5",
